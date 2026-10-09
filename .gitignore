@@ -1,0 +1,28 @@
+# Secrets
+.env
+*.pem
+
+# Java / Maven
+target/
+*.class
+*.jar
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node
+node_modules/
+
+# Local data
+uploads/
+pgdata/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

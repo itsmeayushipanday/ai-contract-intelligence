@@ -1,0 +1,504 @@
+# Project: AI Contract Intelligence Platform
+## Project Context, Requirements, Technology Stack & Development Guidelines
+
+Act as my **Senior Backend Engineer, AI Engineer, Software Architect, and mentor**. Help me design and build a production-style AI Contract Intelligence Platform from scratch.
+
+
+First, understand the complete project described below. Then guide me through development phase by phase, implementing and testing one small component at a time.
+
+---
+
+# 1. My Background and Goal
+
+I am a Software Engineer with approximately 1.5–2 years of professional experience. My goal is to strengthen my profile for Backend Engineer and AI/GenAI Engineer roles.
+
+I want to gain practical experience with:
+
+- Java and Spring Boot backend development
+- REST API design and microservices
+- Databases, caching, asynchronous processing, and distributed systems
+- Python-based AI services
+- LLM integration, embeddings, vector search, and RAG
+- LangChain and, later, LangGraph
+- Docker, AWS, testing, security, and production-oriented engineering
+
+I want this to be a meaningful portfolio project that I can demonstrate on GitHub and explain confidently during technical interviews.
+
+Assume that I am learning some of the AI concepts as I build. Explain unfamiliar concepts in simple language, with practical examples and relevant interview questions.
+
+# 2. Project Overview
+
+Build an **AI Contract Intelligence Platform** that allows users to upload legal and business documents, ask questions about their contents, extract important contractual clauses, summarize agreements, identify potentially concerning clauses, and compare two contracts.
+
+The platform should use retrieval-augmented generation (RAG) so that AI-generated answers are grounded in the uploaded documents and include references to the relevant pages or sections.
+
+# 3. Real-World Problem Statement
+
+Companies regularly handle large numbers of legal and business documents, including:
+
+- Vendor and supplier agreements
+- Non-disclosure agreements (NDAs)
+- Employment agreements
+- Service agreements
+- Lease agreements
+- Partnership contracts
+
+These documents may contain dozens or hundreds of pages. Manually locating specific clauses, understanding obligations, identifying differences between agreements, and tracking important conditions takes time.
+
+For example, a user uploads a 40-page vendor agreement and asks:
+
+- What is the termination notice period?
+- When is payment due?
+- Does the agreement renew automatically?
+- What are the penalties for early termination?
+- What are the obligations of each party?
+- Is there a limitation of liability clause?
+- Compare the termination and payment terms of these two contracts.
+- Summarize the important clauses in this agreement.
+
+The application should retrieve relevant information from the uploaded documents and generate a clear answer with supporting evidence.
+
+If the document does not contain enough information to answer a question, the system should clearly state that it could not find sufficient supporting information instead of inventing an answer.
+
+# 4. Core Functional Requirements
+
+Build the application incrementally, with the following features as the intended final scope.
+
+## A. User and Contract Management
+
+- Allow users to upload PDF contracts.
+- Store contract metadata in PostgreSQL.
+- Maintain document processing status, such as UPLOADED, PROCESSING, COMPLETED, and FAILED.
+- Allow users to list and view their uploaded contracts.
+- Allow users to retrieve contract details and delete their documents.
+- Ensure users can access only documents they are authorized to view.
+
+## B. Document Processing
+
+- Extract text from uploaded PDFs.
+- Preserve page numbers and, where feasible, section headings.
+- Handle empty, invalid, encrypted, or unsupported PDFs gracefully.
+- Split extracted text into manageable chunks.
+- Store chunk metadata, including document ID, page number, section heading when available, and chunk index.
+- Generate embeddings for document chunks.
+- Store embeddings and searchable document metadata.
+
+## C. Contract Question Answering
+
+- Allow a user to select a contract and ask natural-language questions.
+- Retrieve relevant chunks using semantic search.
+- Supply the retrieved context and user question to the LLM.
+- Generate answers grounded in the retrieved evidence.
+- Return citations containing document name, page number, section when available, and relevant supporting text.
+- Avoid unsupported claims when the retrieved context is insufficient.
+
+## D. Contract Summarization
+
+Generate structured summaries containing, where available:
+
+- Parties involved
+- Contract purpose
+- Effective date and duration
+- Payment terms
+- Termination conditions
+- Renewal conditions
+- Liability and indemnity clauses
+- Confidentiality obligations
+
+Clearly distinguish extracted information from information that is unavailable in the contract.
+
+## F. Potential Risk Identification
+
+Identify clauses that may deserve additional review, such as:
+
+- Broad or uncapped liability
+- Automatic renewal conditions
+- Unusual termination restrictions
+- Ambiguous payment obligations
+- Strict penalties
+
+Return the clause, supporting evidence, reason for flagging it, and source reference.
+
+Do not present an LLM-generated risk label as a definitive legal conclusion. Explain that the results require human review.
+
+## G. Contract Comparison
+
+Allow a user to select two uploaded contracts and compare specified terms, including:
+
+- Payment terms
+- Termination conditions
+- Renewal conditions
+- Liability provisions
+- Confidentiality obligations
+
+Return a structured comparison showing the relevant text, differences, and citations from both contracts.
+
+Do not compare entire documents by sending unlimited text to an LLM. Design an appropriate retrieval and comparison workflow.
+
+## H. Conversation Context
+
+Support follow-up questions within a contract-specific conversation.
+
+For example:
+
+User: What is the termination notice period?
+
+Assistant: The contract specifies 30 days.
+
+User: What happens if we terminate early?
+
+The system should resolve the follow-up using the conversation context and retrieve supporting evidence from the correct contract.
+
+Do not assume that the LLM's previous answer is authoritative evidence. Retrieve document evidence for subsequent answers as needed.
+
+# 5. Technology Stack
+
+Use the following stack as the target architecture. Introduce technologies progressively instead of installing or implementing everything immediately.
+
+## Backend
+
+- **Language:** Java 
+- **Framework:** Spring Boot, using a compatible stable version.
+- **API communication:** REST APIs.
+- **Database:** PostgreSQL.
+- **Vector storage:** pgvector extension for PostgreSQL.
+- **Build tool:** Maven.
+- **Security:** Spring Security with JWT-based authentication and authorization.
+- **Caching:** Redis.
+- **Asynchronous messaging:** Apache Kafka.
+- **Resilience:** Resilience4j for appropriate timeouts, retries, and circuit breakers.
+- **API documentation:** Springdoc OpenAPI / Swagger.
+- **Testing:** JUnit 5, Mockito, and integration testing tools appropriate to the chosen architecture.
+- **Containerization:** Docker and Docker Compose.
+
+## AI and Document Processing
+
+- **Language:** Python.
+- **AI API:** Anthropic Claude API for language-model tasks.
+- **LLM orchestration:** LangChain, introduced after understanding the underlying RAG pipeline.
+- **Embeddings:** Use a suitable embedding model available through a supported API or local model. Select it based on cost, quality, language support, and deployment constraints.
+- **Vector retrieval:** pgvector.
+- **PDF processing:** Choose an appropriate Python PDF extraction library and explain the trade-offs.
+- **Structured output validation:** Pydantic.
+- **AI workflow orchestration:** LangGraph, introduced later if the project benefits from multi-step workflows, branching, retries, or explicit state management.
+- **Evaluation:** Create a test dataset and measure retrieval quality, answer correctness, citation accuracy, and unsupported-answer behavior.
+
+## Infrastructure and Development Tools
+
+- Git and GitHub for version control.
+- Docker Compose for local development.
+- AWS S3 for document storage in a later phase.
+- AWS deployment services selected when the application is ready for deployment.
+- Spring Boot Actuator for application health and metrics.
+- CloudWatch if we deploy to an appropriate AWS environment.
+- LangSmith or an alternative tracing solution only if useful and feasible within the project's budget.
+
+Do not assume every tool requires a separate microservice. Choose service boundaries based on actual responsibilities.
+
+# 6. Target Architecture
+
+Use a practical architecture that separates the Java backend from Python-based AI processing.
+
+Conceptually:
+
+Frontend
+    |
+    v
+Spring Boot Backend
+    |
+    +---- Contract Management
+    |
+    +---- Authentication and Authorization
+    |
+    +---- Chat and Query APIs
+    |
+    +---- Processing Orchestration
+    |
+    +---- PostgreSQL / pgvector
+    |
+    +---- Object Storage
+    |
+    +---- Python AI Service
+              |
+              +---- PDF Processing
+              +---- Text Chunking
+              +---- Embedding Generation
+              +---- Retrieval
+              +---- RAG
+              +---- Claude API Integration
+
+For asynchronous document processing, introduce Kafka later:
+
+Document Upload
+    |
+    v
+Spring Boot
+    |
+    v
+Kafka Event
+    |
+    v
+Document Processing Worker
+    |
+    v
+Text Extraction and Chunking
+    |
+    v
+Embedding Generation
+    |
+    v
+PostgreSQL + pgvector
+    |
+    v
+Processing Status Update
+
+The architecture above is conceptual. Refine it after considering responsibilities, data ownership, failure handling, and deployment complexity.
+
+Start with a modular monolith for the Java backend and one Python AI service. Introduce separate microservices only when there is a clear technical reason.
+
+# 7. Important Engineering Requirements
+
+Build the project with sound engineering practices.
+
+## Backend Engineering
+
+- Follow clear separation of controller, service, repository, and integration responsibilities.
+- Use DTOs for API requests and responses.
+- Add appropriate validation and exception handling.
+- Use database transactions where necessary.
+- Design consistent API error responses.
+- Handle duplicate requests and retry scenarios appropriately.
+- Avoid unnecessary database queries and downstream service calls.
+- Add unit and integration tests.
+- Document API contracts.
+- Keep configuration outside source code.
+
+## AI Engineering
+
+- Preserve source metadata throughout document processing.
+- Design and evaluate chunking rather than choosing arbitrary chunk sizes.
+- Ensure the embedding model and vector dimensions are compatible.
+- Support metadata filtering so retrieval is restricted to the authorized contract.
+- Retrieve only relevant context for each question.
+- Keep prompts versioned and understandable.
+- Validate structured LLM output.
+- Treat document contents as untrusted data, not instructions.
+- Protect against prompt injection within uploaded documents.
+- Never allow the LLM to bypass backend authorization or access arbitrary files.
+- Avoid logging sensitive contract text unnecessarily.
+- Handle LLM timeouts, rate limits, invalid responses, and provider errors.
+- Provide citations based on actual retrieved document chunks.
+- Evaluate hallucinations and retrieval failures instead of assuming RAG eliminates them.
+
+## Reliability and Security
+
+- Validate file type and file size.
+- Avoid exposing API keys or credentials.
+- Use environment variables and a local `.env` file where appropriate; never commit secrets.
+- Ensure document deletion also addresses associated chunks, embeddings, and stored files.
+- Implement user-level authorization before document retrieval.
+- Consider retention, cleanup, and logging policies.
+- Keep the system's legal-risk analysis clearly labeled as informational.
+
+# 8. Development Phases
+
+Guide me through these phases in order.
+
+**Phase 0: Planning and environment setup**
+- Confirm installed tools and versions.
+- Establish the repository structure.
+- Set up Git.
+- Create project documentation and development rules.
+- Configure environment variables and local development.
+
+**Phase 1: Java backend foundation**
+- Create the Spring Boot application.
+- Design the initial package structure.
+- Connect PostgreSQL.
+- Implement contract metadata entities, repositories, services, and CRUD APIs.
+- Add validation and tests.
+
+**Phase 2: PDF upload and storage**
+- Implement secure PDF upload.
+- Begin with local storage or another simple development-friendly option.
+- Store metadata and processing status.
+- Introduce S3 only after the local flow works.
+
+**Phase 3: Python AI service**
+- Create the Python service with a clearly defined API contract.
+- Extract PDF text and preserve page metadata.
+- Add validation and error handling.
+- Integrate it with the Java backend.
+
+**Phase 4: Chunking and embeddings**
+- Implement chunking.
+- Select and configure an embedding model.
+- Store chunks, metadata, and embeddings using pgvector.
+- Verify that ingestion is repeatable and handles failures.
+
+**Phase 5: Semantic search**
+- Implement query embedding and vector retrieval.
+- Add contract-level metadata filtering.
+- Evaluate retrieval with representative questions.
+- Inspect retrieved chunks before introducing answer generation.
+
+**Phase 6: RAG and Claude**
+- Integrate the Claude API.
+- Build the retrieval, prompt construction, and answer-generation flow.
+- Ground responses in retrieved evidence.
+- Return page-level citations.
+- Handle questions that cannot be answered from the available context.
+
+**Phase 7: Advanced contract intelligence**
+- Add summarization.
+- Add structured clause extraction.
+- Add evidence-based potential-risk identification.
+- Add contract comparison.
+
+**Phase 8: Conversation context**
+- Support follow-up questions.
+- Maintain contract-specific conversation context.
+- Re-retrieve supporting evidence for follow-up answers.
+
+**Phase 9: Asynchronous processing with Kafka**
+- Introduce document-processing events.
+- Handle processing states and failures.
+- Design idempotent consumers and appropriate retry/dead-letter handling.
+- Make sure users can see when processing succeeds or fails.
+
+**Phase 10: Redis and performance**
+- Identify actual caching opportunities.
+- Implement cache keys, TTLs, and invalidation.
+- Measure performance before claiming improvements.
+
+**Phase 11: Authentication and authorization**
+- Implement authentication and user-level access control.
+- Verify that one user cannot access another user's documents, chunks, or conversation history.
+- Test authorization failures.
+
+**Phase 12: Docker and deployment**
+- Containerize the services.
+- Run the local environment through Docker Compose.
+- Deploy to AWS when the application is stable.
+- Configure logging, health checks, monitoring, and secure secrets management.
+
+**Phase 13: Quality and portfolio readiness**
+- Add unit, integration, and end-to-end tests.
+- Evaluate retrieval and answer quality.
+- Document architecture and design decisions.
+- Create architecture diagrams and API documentation.
+- Prepare a clear GitHub README with setup instructions, screenshots, and limitations.
+- Prepare interview explanations for design decisions and trade-offs.
+
+You may adjust the sequence when a dependency requires it, but explain why before making significant changes.
+
+# 9. How I Want You to Work With Me
+
+Follow these rules throughout the project.
+
+1. **Do not generate the entire application at once.** Implement one small, testable milestone at a time.
+
+2. Before coding each milestone, explain:
+   - The problem we are solving.
+   - Why this component is needed.
+   - How it fits into the overall architecture.
+   - The design and technology choices.
+   - Any important alternatives and trade-offs.
+
+3. Give me exact setup commands, file paths, configuration, and code needed for the current milestone.
+
+4. Explain where each file belongs and why it exists.
+
+5. After implementation, provide the exact commands to run the application and test the feature.
+
+6. Include appropriate unit or integration tests. Do not claim a test passed unless it has actually been run and verified.
+
+7. If an error occurs, help me debug the underlying cause rather than replacing everything with a new implementation.
+
+8. Explain important code and design decisions in simple terms, particularly Java/Spring Boot, SQL, Kafka, Python, embeddings, vector search, RAG, and LLM integration.
+
+9. When introducing an AI concept, explain it with a concrete example from this contract platform.
+
+10. Identify relevant interview questions for each major component, with concise model answers after explaining the implementation.
+
+11. Follow clean code practices, but do not overengineer the early versions.
+
+12. Never invent performance metrics, test results, implementation details, or completed features.
+
+13. If a dependency, API, or model changes, check its current documentation where possible instead of assuming an outdated API.
+
+14. If a required decision is unclear, explain the options and recommend one. Ask me a question only when the decision genuinely blocks progress.
+
+15. Keep a running list of completed milestones, pending work, design decisions, and known limitations in the project documentation so development can resume consistently in future sessions.
+
+16. Before making destructive changes, deleting files, or introducing major architectural changes, explain the impact and ask for approval.
+
+17. Use compatible, supported dependency versions. Avoid unnecessary dependencies and avoid hardcoding secrets.
+
+18. Help me build something I understand and can defend in an interview, not merely something that compiles.
+
+# 10. Repository and Documentation
+
+Use this initial repository layout as a starting point and refine it as necessary:
+
+ai-contract-intelligence/
+    backend/
+    ai-service/
+    frontend/
+    infrastructure/
+    docs/
+    CLAUDE.md
+    README.md
+    .gitignore
+    .env.example
+
+
+Maintain these documents as we progress:
+
+- `README.md`: project purpose, setup, features, and run instructions.
+- `CLAUDE.md`: persistent coding rules and project context.
+- `docs/architecture.md`: architecture and component responsibilities.
+- `docs/api.md`: API endpoints and request/response contracts.
+- `docs/decisions.md`: important technical decisions and their trade-offs.
+- `docs/progress.md`: completed milestones, pending tasks, test status, and known limitations.
+
+Do not create every file with extensive content immediately. Populate the documentation as the corresponding decisions are made.
+
+# 11. Definition of Done
+
+The final project should allow a user to:
+
+1. Authenticate securely.
+2. Upload a PDF contract.
+3. See its processing status.
+4. Ask questions about the contract.
+5. Receive evidence-based answers with page-level citations.
+6. Generate summaries and extract structured clauses.
+7. Identify clauses that may warrant further review.
+8. Compare two contracts.
+9. Continue a conversation about a specific contract.
+10. Access only the documents they are authorized to view.
+
+The application should include automated tests, error handling, documentation, a reproducible local setup, and a documented deployment approach.
+
+Measure retrieval quality, answer correctness, citation accuracy, and system performance where feasible. Report only actual measurements.
+
+# 12. Your First Task
+
+For now, **do not write application code**.
+
+Start by doing the following:
+
+1. Summarize the project in your own words to confirm your understanding.
+2. Explain the core architecture and the responsibilities of each component.
+3. Identify the minimum tools and software versions I need to install.
+4. Distinguish the tools required for the first milestone from technologies we will add later.
+5. Recommend a practical local development setup for Windows.
+6. Propose the initial repository structure and explain it.
+7. Explain how I should use Claude Code or Claude's coding environment to work on this repository.
+8. Identify any API keys, paid services, or potential costs I should be aware of before development.
+9. Give me a checklist for completing Phase 0.
+
+Wait for me to complete the setup and share the results before moving on to Phase 1.
+
+Remember: **we are building this project to learn backend and AI engineering deeply, not simply to generate code.**
