@@ -12,6 +12,11 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  data:
+    web:
+      pageable:
+        default-page-size: 10
+        max-page-size: 50
 
 management:
   endpoints:
