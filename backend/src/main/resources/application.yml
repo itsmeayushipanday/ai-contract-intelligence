@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: contract-intelligence-backend
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:contracts}
+    username: ${POSTGRES_USER:contracts_user}
+    password: ${POSTGRES_PASSWORD}
+  jpa:
+    hibernate:
+      # Flyway owns the schema; Hibernate only checks that entities match it.
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
