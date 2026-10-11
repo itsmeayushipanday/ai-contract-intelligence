@@ -13,6 +13,7 @@ import com.contractai.backend.entity.Contract;
 import com.contractai.backend.enums.ContractStatus;
 import com.contractai.backend.exception.ContractNotFoundException;
 import com.contractai.backend.repository.ContractRepository;
+import com.contractai.backend.service.impl.ContractServiceImpl;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -30,7 +31,7 @@ class ContractServiceTest {
     private ContractRepository repository;
 
     @InjectMocks
-    private ContractService service;
+    private ContractServiceImpl service;
 
     private final UUID owner = UUID.randomUUID();
     private final UUID contractId = UUID.randomUUID();
