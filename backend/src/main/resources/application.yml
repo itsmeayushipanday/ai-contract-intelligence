@@ -10,6 +10,12 @@ spring:
       # Flyway owns the schema; Hibernate only checks that entities match it.
       ddl-auto: validate
     open-in-view: false
+  servlet:
+    multipart:
+      # Spring rejects oversized uploads early; PdfFileValidator enforces the same limit again.
+      max-file-size: ${app.upload.max-file-size}
+      # a little larger than the file limit to allow for multipart boundary overhead
+      max-request-size: 11MB
   flyway:
     enabled: true
   data:
@@ -19,6 +25,8 @@ spring:
         max-page-size: 50
 
 app:
+  upload:
+    max-file-size: 10MB
   storage:
     # Relative paths are resolved from the folder the app is started in (backend/).
     location: ${STORAGE_LOCATION:./uploads}
