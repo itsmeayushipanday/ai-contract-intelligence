@@ -18,6 +18,11 @@ spring:
         default-page-size: 10
         max-page-size: 50
 
+app:
+  storage:
+    # Relative paths are resolved from the folder the app is started in (backend/).
+    location: ${STORAGE_LOCATION:./uploads}
+
 management:
   endpoints:
     web:
