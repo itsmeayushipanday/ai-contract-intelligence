@@ -1,24 +1,24 @@
 package com.contractai.backend.controller;
 
 import com.contractai.backend.dto.ContractResponse;
-import com.contractai.backend.dto.CreateContractRequest;
 import com.contractai.backend.dto.PageResponse;
 import com.contractai.backend.service.ContractService;
-import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * HTTP layer only: parse the request, call the service, shape the response.
@@ -35,11 +35,12 @@ public class ContractController {
 
     private final ContractService service;
 
-    @PostMapping
-    public ResponseEntity<ContractResponse> create(
+    /** multipart/form-data upload: the PDF goes in a part named "file". */
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ContractResponse> upload(
             @RequestHeader(USER_HEADER) UUID userId,
-            @Valid @RequestBody CreateContractRequest request) {
-        ContractResponse created = service.create(userId, request);
+            @RequestPart("file") MultipartFile file) {
+        ContractResponse created = service.upload(userId, file);
         return ResponseEntity.created(URI.create("/api/contracts/" + created.id())).body(created);
     }
 

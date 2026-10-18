@@ -1,5 +1,6 @@
 package com.contractai.backend.exception;
 
+import com.contractai.backend.config.UploadProperties;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
@@ -24,6 +26,26 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    private final UploadProperties uploadProperties;
+
+    public GlobalExceptionHandler(UploadProperties uploadProperties) {
+        this.uploadProperties = uploadProperties;
+    }
+
+    /**
+     * Thrown by Spring's multipart limit before our own validator runs. Same title and wording as
+     * FileTooLargeException, so the caller always sees one consistent "file too large" message.
+     */
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONTENT_TOO_LARGE,
+                "The file exceeds the maximum size of " + uploadProperties.maxFileSizeLabel() + ".");
+        problem.setTitle("File too large");
+        return handleExceptionInternal(ex, problem, headers, HttpStatus.CONTENT_TOO_LARGE, request);
+    }
 
     @ExceptionHandler(ContractNotFoundException.class)
     public ProblemDetail handleNotFound(ContractNotFoundException ex) {

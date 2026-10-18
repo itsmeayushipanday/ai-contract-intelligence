@@ -7,27 +7,35 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.contractai.backend.config.UploadProperties;
 import com.contractai.backend.dto.ContractResponse;
 import com.contractai.backend.enums.ContractStatus;
 import com.contractai.backend.exception.ContractNotFoundException;
+import com.contractai.backend.exception.FileTooLargeException;
+import com.contractai.backend.exception.InvalidFileException;
 import com.contractai.backend.service.ContractService;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 // Loads only the web layer. The service is a fake, so this tests URLs, status codes and JSON.
+// The slice does not scan @ConfigurationProperties, and GlobalExceptionHandler needs UploadProperties.
 @WebMvcTest(ContractController.class)
+@EnableConfigurationProperties(UploadProperties.class)
 class ContractControllerTest {
 
     private static final String USER_HEADER = "X-User-Id";
@@ -46,43 +54,57 @@ class ContractControllerTest {
                 ContractStatus.UPLOADED, null, null, Instant.now(), Instant.now());
     }
 
-    @Test
-    void createReturns201WithLocationAndBody() throws Exception {
-        when(service.create(any(), any())).thenReturn(sample());
+    private MockMultipartFile pdfPart() {
+        return new MockMultipartFile("file", "vendor.pdf", "application/pdf", "%PDF-1.7".getBytes());
+    }
 
-        mockMvc.perform(post("/api/contracts")
-                        .header(USER_HEADER, user)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"originalFilename\":\"vendor.pdf\",\"contentType\":\"application/pdf\",\"fileSizeBytes\":2048}"))
+    @Test
+    void uploadReturns201WithLocationAndBodyWithoutInternalFields() throws Exception {
+        when(service.upload(any(), any())).thenReturn(sample());
+
+        mockMvc.perform(multipart("/api/contracts").file(pdfPart()).header(USER_HEADER, user))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/contracts/" + contractId))
                 .andExpect(jsonPath("$.originalFilename").value("vendor.pdf"))
                 .andExpect(jsonPath("$.status").value("UPLOADED"))
-                .andExpect(jsonPath("$.ownerId").doesNotExist());
+                .andExpect(jsonPath("$.ownerId").doesNotExist())
+                .andExpect(jsonPath("$.storagePath").doesNotExist());
     }
 
     @Test
-    void createRejectsInvalidBodyWith400() throws Exception {
-        mockMvc.perform(post("/api/contracts")
-                        .header(USER_HEADER, user)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"originalFilename\":\"\",\"contentType\":\"application/pdf\",\"fileSizeBytes\":-5}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.title").value("Validation failed"))
-                .andExpect(jsonPath("$.errors.originalFilename").isNotEmpty())
-                .andExpect(jsonPath("$.errors.fileSizeBytes").isNotEmpty())
-                .andExpect(jsonPath("$.errors.contentType").doesNotExist());
-    }
-
-    @Test
-    void createRejectsMalformedJsonWith400() throws Exception {
-        mockMvc.perform(post("/api/contracts")
-                        .header(USER_HEADER, user)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{not valid json"))
+    void uploadWithoutFilePartReturns400() throws Exception {
+        mockMvc.perform(multipart("/api/contracts").header(USER_HEADER, user))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+
+    @Test
+    void uploadWithJsonBodyInsteadOfMultipartReturns415() throws Exception {
+        mockMvc.perform(post("/api/contracts")
+                        .header(USER_HEADER, user)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"originalFilename\":\"x.pdf\"}"))
+                .andExpect(status().isUnsupportedMediaType());
+    }
+
+    @Test
+    void invalidFileReturns400ProblemDetail() throws Exception {
+        when(service.upload(any(), any())).thenThrow(new InvalidFileException("The file is not a valid PDF."));
+
+        mockMvc.perform(multipart("/api/contracts").file(pdfPart()).header(USER_HEADER, user))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Invalid file"))
+                .andExpect(jsonPath("$.detail").value("The file is not a valid PDF."));
+    }
+
+    @Test
+    void tooLargeFileReturns413ProblemDetail() throws Exception {
+        when(service.upload(any(), any())).thenThrow(new FileTooLargeException("The file exceeds the maximum size."));
+
+        mockMvc.perform(multipart("/api/contracts").file(pdfPart()).header(USER_HEADER, user))
+                .andExpect(status().isContentTooLarge())
+                .andExpect(jsonPath("$.title").value("File too large"));
     }
 
     @Test

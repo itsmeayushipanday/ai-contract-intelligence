@@ -1,6 +1,12 @@
 spring:
   application:
     name: contract-intelligence-backend
+  config:
+    # Local development: read the git-ignored .env file at the repo root, so the DB password never has
+    # to be typed into the terminal. "optional:" means a missing file is fine (e.g. in production).
+    # The first path works when started from backend/, the second from the repo root.
+    # A real environment variable of the same name still takes precedence over the file.
+    import: "optional:file:../.env[.properties],optional:file:./.env[.properties]"
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:contracts}
     username: ${POSTGRES_USER:contracts_user}
@@ -30,6 +36,14 @@ app:
   storage:
     # Relative paths are resolved from the folder the app is started in (backend/).
     location: ${STORAGE_LOCATION:./uploads}
+
+server:
+  tomcat:
+    # When an upload is rejected as too large, Tomcat reads and discards the rest of the request body
+    # (up to this limit) so the browser can actually receive our 413 message. With the default of 2MB
+    # it drops the connection instead, which browsers report as "Failed to fetch". Bounded on purpose:
+    # an unlimited value would let anyone make the server read gigabytes just to throw them away.
+    max-swallow-size: 100MB
 
 management:
   endpoints:

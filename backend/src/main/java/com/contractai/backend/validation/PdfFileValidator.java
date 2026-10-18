@@ -32,7 +32,7 @@ public class PdfFileValidator {
         }
         long maxBytes = properties.maxFileSize().toBytes();
         if (file.getSize() > maxBytes) {
-            throw new FileTooLargeException("The file exceeds the maximum size of " + properties.maxFileSize() + ".");
+            throw new FileTooLargeException("The file exceeds the maximum size of " + properties.maxFileSizeLabel() + ".");
         }
         if (!startsWithPdfMagic(file)) {
             throw new InvalidFileException("The file is not a valid PDF.");
