@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.api import extract, health
 from app.config import get_settings
+from app.errors import register_error_handlers
 
 
 def create_app() -> FastAPI:
@@ -16,6 +17,7 @@ def create_app() -> FastAPI:
         version=settings.version,
         description="PDF processing and AI features. Called by the Java backend, not by end users.",
     )
+    register_error_handlers(app)
     app.include_router(health.router)
     app.include_router(extract.router)
     return app

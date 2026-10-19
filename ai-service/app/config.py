@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     version: str = "0.1.0"
     log_level: str = "INFO"
 
+    # Limits for untrusted uploads. The size default matches the Java backend's 10 MB upload limit.
+    max_file_size_bytes: int = 10 * 1024 * 1024
+    max_pages: int = 500
+
     # The shared .env at the repo root also holds Java/Postgres settings, so unknown keys are ignored.
     # Paths work whether the service is started from ai-service/ or from the repo root.
     model_config = SettingsConfigDict(env_file=("../.env", ".env"), extra="ignore")
@@ -17,5 +21,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Created once and reused. Tests can clear the cache to pick up different settings."""
+    """Created once and reused. Tests override it through FastAPI's dependency_overrides."""
     return Settings()
