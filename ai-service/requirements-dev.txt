@@ -2,3 +2,5 @@
 pytest==9.1.1
 # FastAPI's TestClient (Starlette) now expects httpx2; plain httpx still works but prints a deprecation warning
 httpx2==2.14.0
+# Generates small real PDFs for tests (so extraction is tested for real, not mocked)
+reportlab==5.0.1

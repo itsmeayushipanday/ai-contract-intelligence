@@ -24,8 +24,17 @@ cd ai-service
 .venv\Scripts\python.exe -m pytest
 ```
 
+## Try the extraction endpoint
+```
+curl -F "file=@some-contract.pdf" http://localhost:8000/v1/extract
+```
+Returns `{"page_count": N, "pages": [{"page_number": 1, "text": "..."}, ...]}`. Or use the "Try it out"
+button at http://localhost:8000/docs.
+
 ## Layout
 - `app/main.py`: builds the FastAPI app (`create_app`)
 - `app/config.py`: settings from environment variables / the root `.env`
-- `app/api/`: HTTP routes
-- `tests/`: pytest tests
+- `app/api/`: HTTP routes (`health.py`, `extract.py`)
+- `app/schemas/`: Pydantic request/response models
+- `app/services/`: the actual work (`pdf_extractor.py`)
+- `tests/`: pytest tests (`pdf_factory.py` builds small real PDFs for them)

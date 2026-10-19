@@ -2,7 +2,7 @@ import logging
 
 from fastapi import FastAPI
 
-from app.api import health
+from app.api import extract, health
 from app.config import get_settings
 
 
@@ -17,6 +17,7 @@ def create_app() -> FastAPI:
         description="PDF processing and AI features. Called by the Java backend, not by end users.",
     )
     app.include_router(health.router)
+    app.include_router(extract.router)
     return app
 
 
