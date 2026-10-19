@@ -1,10 +1,12 @@
 package com.contractai.backend.service.impl;
 
+import com.contractai.backend.dto.ContractDownload;
 import com.contractai.backend.dto.ContractResponse;
 import com.contractai.backend.dto.PageResponse;
 import com.contractai.backend.entity.Contract;
 import com.contractai.backend.exception.ContractNotFoundException;
 import com.contractai.backend.exception.InvalidFileException;
+import com.contractai.backend.exception.StoredFileNotFoundException;
 import com.contractai.backend.repository.ContractRepository;
 import com.contractai.backend.service.ContractService;
 import com.contractai.backend.service.FileStorageService;
@@ -71,11 +73,40 @@ public class ContractServiceImpl implements ContractService {
         return ContractResponse.from(findOwned(ownerId, id));
     }
 
-    // Later phases will also remove the stored file, chunks and embeddings in this same operation.
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
+    public ContractDownload download(UUID ownerId, UUID id) {
+        Contract contract = findOwned(ownerId, id);
+        if (contract.getStoragePath() == null) {
+            // old metadata-only rows from before file upload existed
+            throw new StoredFileNotFoundException("No file is stored for contract " + id);
+        }
+        // opened inside the transaction only to read the row; the stream is consumed by the controller
+        return new ContractDownload(
+                contract.getOriginalFilename(), contract.getFileSizeBytes(), storage.load(contract.getStoragePath()));
+    }
+
+    // Deliberately NOT @Transactional (same reason as upload): the row must be committed as deleted
+    // BEFORE we touch the file. If the file delete then fails we only log it, because a leftover file
+    // is harmless, whereas a row pointing at a missing file would be a broken contract.
+    // Later phases will also remove chunks and embeddings here.
+    @Override
     public void delete(UUID ownerId, UUID id) {
-        repository.delete(findOwned(ownerId, id));
+        Contract contract = findOwned(ownerId, id);
+        repository.delete(contract);
+        deleteStoredFile(contract);
+    }
+
+    private void deleteStoredFile(Contract contract) {
+        if (contract.getStoragePath() == null) {
+            return;
+        }
+        try {
+            storage.delete(contract.getStoragePath());
+        } catch (RuntimeException e) {
+            log.warn("Contract {} was deleted but its file {} could not be removed",
+                    contract.getId(), contract.getStoragePath(), e);
+        }
     }
 
     private String storeFile(UUID ownerId, MultipartFile file) {

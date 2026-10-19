@@ -69,6 +69,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return handleExceptionInternal(ex, problem, headers, status, request);
     }
 
+    @ExceptionHandler(StoredFileNotFoundException.class)
+    public ProblemDetail handleStoredFileNotFound(StoredFileNotFoundException ex) {
+        // the contract exists but its file does not: worth a server-side warning, a plain 404 for the caller
+        log.warn("File requested but not available: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, "The file for this contract is not available.");
+        problem.setTitle("File not available");
+        return problem;
+    }
+
     @ExceptionHandler(InvalidFileException.class)
     public ProblemDetail handleInvalidFile(InvalidFileException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());

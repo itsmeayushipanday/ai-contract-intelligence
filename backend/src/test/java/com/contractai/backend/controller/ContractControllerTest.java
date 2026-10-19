@@ -15,12 +15,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.contractai.backend.config.UploadProperties;
+import com.contractai.backend.dto.ContractDownload;
 import com.contractai.backend.dto.ContractResponse;
 import com.contractai.backend.enums.ContractStatus;
 import com.contractai.backend.exception.ContractNotFoundException;
 import com.contractai.backend.exception.FileTooLargeException;
 import com.contractai.backend.exception.InvalidFileException;
+import com.contractai.backend.exception.StoredFileNotFoundException;
 import com.contractai.backend.service.ContractService;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -143,6 +147,55 @@ class ContractControllerTest {
                 .andExpect(jsonPath("$.title").value("Internal server error"))
                 .andExpect(jsonPath("$.detail").value("An unexpected error occurred."))
                 .andExpect(content().string(not(containsString("secret-host"))));
+    }
+
+    private ContractDownload downloadOf(String filename, String text) {
+        byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+        return new ContractDownload(filename, bytes.length, new ByteArrayInputStream(bytes));
+    }
+
+    @Test
+    void downloadStreamsPdfWithSafeHeaders() throws Exception {
+        when(service.download(user, contractId)).thenReturn(downloadOf("vendor.pdf", "%PDF-1.7 body"));
+
+        mockMvc.perform(get("/api/contracts/" + contractId + "/file").header(USER_HEADER, user))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(header().string("Content-Length", "13"))
+                .andExpect(header().string("Content-Disposition", containsString("attachment")))
+                .andExpect(header().string("Content-Disposition", containsString("vendor.pdf")))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(content().string("%PDF-1.7 body"));
+    }
+
+    @Test
+    void downloadEscapesQuotesInTheFilename() throws Exception {
+        when(service.download(user, contractId)).thenReturn(downloadOf("a\"b; evil=1.pdf", "%PDF-1.7"));
+
+        mockMvc.perform(get("/api/contracts/" + contractId + "/file").header(USER_HEADER, user))
+                .andExpect(status().isOk())
+                // the quote must be escaped, so the filename cannot break out of its quoted value
+                .andExpect(header().string("Content-Disposition", containsString("a\\\"b")));
+    }
+
+    @Test
+    void downloadReturns404WhenNotTheCallersContract() throws Exception {
+        when(service.download(user, contractId)).thenThrow(new ContractNotFoundException(contractId));
+
+        mockMvc.perform(get("/api/contracts/" + contractId + "/file").header(USER_HEADER, user))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Contract not found"));
+    }
+
+    @Test
+    void downloadReturns404ProblemDetailWhenFileIsNotAvailable() throws Exception {
+        when(service.download(user, contractId)).thenThrow(new StoredFileNotFoundException("missing on disk: secret/path.pdf"));
+
+        mockMvc.perform(get("/api/contracts/" + contractId + "/file").header(USER_HEADER, user))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("File not available"))
+                .andExpect(content().string(not(containsString("secret/path.pdf"))));
     }
 
     @Test

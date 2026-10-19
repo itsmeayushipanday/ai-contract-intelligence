@@ -1,13 +1,18 @@
 package com.contractai.backend.controller;
 
+import com.contractai.backend.dto.ContractDownload;
 import com.contractai.backend.dto.ContractResponse;
 import com.contractai.backend.dto.PageResponse;
 import com.contractai.backend.service.ContractService;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -53,6 +58,22 @@ public class ContractController {
     @GetMapping("/{id}")
     public ContractResponse get(@RequestHeader(USER_HEADER) UUID userId, @PathVariable UUID id) {
         return service.get(userId, id);
+    }
+
+    /** Streams the stored PDF. Files are never served from a public folder, so the owner check always runs. */
+    @GetMapping("/{id}/file")
+    public ResponseEntity<InputStreamResource> download(
+            @RequestHeader(USER_HEADER) UUID userId, @PathVariable UUID id) {
+        ContractDownload file = service.download(userId, id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .contentLength(file.sizeBytes())
+                // attachment = download instead of rendering in the browser; the builder escapes
+                // quotes and special characters in the filename
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(file.filename(), StandardCharsets.UTF_8).build().toString())
+                .header("X-Content-Type-Options", "nosniff")
+                .body(new InputStreamResource(file.content()));
     }
 
     @DeleteMapping("/{id}")

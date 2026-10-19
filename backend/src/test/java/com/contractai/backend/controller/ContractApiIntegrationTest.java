@@ -1,12 +1,15 @@
 package com.contractai.backend.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.contractai.backend.entity.Contract;
 import com.contractai.backend.repository.ContractRepository;
 import com.jayway.jsonpath.JsonPath;
 import java.nio.charset.StandardCharsets;
@@ -144,6 +147,74 @@ class ContractApiIntegrationTest {
 
         mockMvc.perform(get("/api/contracts/" + id).header(USER_HEADER, alice))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void downloadReturnsExactlyTheUploadedBytes() throws Exception {
+        UUID alice = UUID.randomUUID();
+        String id = uploadAs(alice);
+
+        byte[] downloaded = mockMvc.perform(get("/api/contracts/" + id + "/file").header(USER_HEADER, alice))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("attachment")))
+                .andExpect(header().string("Content-Length", String.valueOf(PDF_BYTES.length)))
+                .andReturn().getResponse().getContentAsByteArray();
+
+        assertThat(downloaded).isEqualTo(PDF_BYTES);
+    }
+
+    @Test
+    void anotherUserCannotDownloadMyFile() throws Exception {
+        UUID alice = UUID.randomUUID();
+        String id = uploadAs(alice);
+
+        mockMvc.perform(get("/api/contracts/" + id + "/file").header(USER_HEADER, UUID.randomUUID()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleteRemovesTheContractAndItsFileFromDisk() throws Exception {
+        UUID alice = UUID.randomUUID();
+        String id = uploadAs(alice);
+        Path onDisk = storageDir.resolve(repository.findById(UUID.fromString(id)).orElseThrow().getStoragePath());
+        assertThat(Files.exists(onDisk)).isTrue();
+
+        mockMvc.perform(delete("/api/contracts/" + id).header(USER_HEADER, alice))
+                .andExpect(status().isNoContent());
+
+        assertThat(Files.exists(onDisk)).isFalse();
+        mockMvc.perform(get("/api/contracts/" + id + "/file").header(USER_HEADER, alice))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void failedDeleteByAnotherUserLeavesTheFileOnDisk() throws Exception {
+        UUID alice = UUID.randomUUID();
+        String id = uploadAs(alice);
+        Path onDisk = storageDir.resolve(repository.findById(UUID.fromString(id)).orElseThrow().getStoragePath());
+
+        mockMvc.perform(delete("/api/contracts/" + id).header(USER_HEADER, UUID.randomUUID()))
+                .andExpect(status().isNotFound());
+
+        assertThat(Files.exists(onDisk)).isTrue();
+    }
+
+    @Test
+    void downloadOfOldRecordWithoutFileReturns404() throws Exception {
+        UUID alice = UUID.randomUUID();
+        Contract legacy = new Contract(); // like the rows created before uploads existed: no storagePath
+        legacy.setOwnerId(alice);
+        legacy.setOriginalFilename("old.pdf");
+        legacy.setContentType("application/pdf");
+        legacy.setFileSizeBytes(1);
+        UUID id = repository.saveAndFlush(legacy).getId();
+
+        mockMvc.perform(get("/api/contracts/" + id + "/file").header(USER_HEADER, alice))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("File not available"));
+        // and it can still be deleted
+        mockMvc.perform(delete("/api/contracts/" + id).header(USER_HEADER, alice))
+                .andExpect(status().isNoContent());
     }
 
     @Test

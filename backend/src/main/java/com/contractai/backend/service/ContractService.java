@@ -1,5 +1,6 @@
 package com.contractai.backend.service;
 
+import com.contractai.backend.dto.ContractDownload;
 import com.contractai.backend.dto.ContractResponse;
 import com.contractai.backend.dto.PageResponse;
 import java.util.UUID;
@@ -16,5 +17,9 @@ public interface ContractService {
 
     ContractResponse get(UUID ownerId, UUID id);
 
+    /** Opens the stored PDF. 404 if the contract is not the caller's or has no stored file. */
+    ContractDownload download(UUID ownerId, UUID id);
+
+    /** Removes the contract record and its stored file. */
     void delete(UUID ownerId, UUID id);
 }

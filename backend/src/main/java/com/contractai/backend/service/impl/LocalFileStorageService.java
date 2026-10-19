@@ -2,6 +2,7 @@ package com.contractai.backend.service.impl;
 
 import com.contractai.backend.config.StorageProperties;
 import com.contractai.backend.exception.StorageException;
+import com.contractai.backend.exception.StoredFileNotFoundException;
 import com.contractai.backend.service.FileStorageService;
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,7 +43,7 @@ public class LocalFileStorageService implements FileStorageService {
         try {
             return Files.newInputStream(resolveInsideRoot(storagePath));
         } catch (NoSuchFileException e) {
-            throw new StorageException("Stored file not found", e);
+            throw new StoredFileNotFoundException("Stored file not found", e);
         } catch (IOException e) {
             throw new StorageException("Could not read file", e);
         }

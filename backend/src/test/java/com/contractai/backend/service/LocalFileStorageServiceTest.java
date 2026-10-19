@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.contractai.backend.config.StorageProperties;
 import com.contractai.backend.exception.StorageException;
+import com.contractai.backend.exception.StoredFileNotFoundException;
 import com.contractai.backend.service.impl.LocalFileStorageService;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -60,7 +61,7 @@ class LocalFileStorageServiceTest {
     @Test
     void loadOfMissingFileThrowsStorageException() {
         assertThatThrownBy(() -> storage.load(owner + "/missing.pdf"))
-                .isInstanceOf(StorageException.class);
+                .isInstanceOf(StoredFileNotFoundException.class);
     }
 
     @Test

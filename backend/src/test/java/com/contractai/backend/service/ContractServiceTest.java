@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.contractai.backend.dto.ContractDownload;
 import com.contractai.backend.dto.ContractResponse;
 import com.contractai.backend.entity.Contract;
 import com.contractai.backend.enums.ContractStatus;
@@ -17,15 +19,18 @@ import com.contractai.backend.exception.ContractNotFoundException;
 import com.contractai.backend.exception.FileTooLargeException;
 import com.contractai.backend.exception.InvalidFileException;
 import com.contractai.backend.exception.StorageException;
+import com.contractai.backend.exception.StoredFileNotFoundException;
 import com.contractai.backend.repository.ContractRepository;
 import com.contractai.backend.service.impl.ContractServiceImpl;
 import com.contractai.backend.validation.PdfFileValidator;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -177,14 +182,78 @@ class ContractServiceTest {
                 .isInstanceOf(ContractNotFoundException.class);
     }
 
-    @Test
-    void deleteRemovesOwnedContract() {
+    private Contract contractWithFile() {
         Contract contract = new Contract();
+        contract.setOriginalFilename("vendor.pdf");
+        contract.setFileSizeBytes(13);
+        contract.setStoragePath(STORED_PATH);
+        return contract;
+    }
+
+    @Test
+    void downloadReturnsStoredFileForOwner() throws Exception {
+        when(repository.findByIdAndOwnerId(contractId, owner)).thenReturn(Optional.of(contractWithFile()));
+        when(storage.load(STORED_PATH)).thenReturn(new ByteArrayInputStream("%PDF-1.7 body".getBytes()));
+
+        ContractDownload download = service.download(owner, contractId);
+
+        assertThat(download.filename()).isEqualTo("vendor.pdf");
+        assertThat(download.sizeBytes()).isEqualTo(13);
+        assertThat(new String(download.content().readAllBytes())).isEqualTo("%PDF-1.7 body");
+    }
+
+    @Test
+    void downloadByAnotherUserIsNotFoundAndNeverTouchesStorage() {
+        when(repository.findByIdAndOwnerId(contractId, owner)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.download(owner, contractId)).isInstanceOf(ContractNotFoundException.class);
+
+        verifyNoInteractions(storage);
+    }
+
+    @Test
+    void downloadOfOldRowWithoutStoredFileThrowsStoredFileNotFound() {
+        Contract legacy = new Contract(); // storagePath is null, like rows created before uploads existed
+        when(repository.findByIdAndOwnerId(contractId, owner)).thenReturn(Optional.of(legacy));
+
+        assertThatThrownBy(() -> service.download(owner, contractId))
+                .isInstanceOf(StoredFileNotFoundException.class);
+
+        verifyNoInteractions(storage);
+    }
+
+    @Test
+    void deleteRemovesRowThenFile() {
+        Contract contract = contractWithFile();
         when(repository.findByIdAndOwnerId(contractId, owner)).thenReturn(Optional.of(contract));
 
         service.delete(owner, contractId);
 
+        InOrder order = inOrder(repository, storage);
+        order.verify(repository).delete(contract); // the row goes first
+        order.verify(storage).delete(STORED_PATH); // then the file
+    }
+
+    @Test
+    void deleteStillSucceedsWhenTheFileCannotBeRemoved() {
+        Contract contract = contractWithFile();
+        when(repository.findByIdAndOwnerId(contractId, owner)).thenReturn(Optional.of(contract));
+        doThrow(new StorageException("disk locked")).when(storage).delete(STORED_PATH);
+
+        service.delete(owner, contractId); // must not throw: the contract is already deleted
+
         verify(repository).delete(contract);
+    }
+
+    @Test
+    void deleteOfOldRowWithoutStoredFileSkipsStorage() {
+        Contract legacy = new Contract();
+        when(repository.findByIdAndOwnerId(contractId, owner)).thenReturn(Optional.of(legacy));
+
+        service.delete(owner, contractId);
+
+        verify(repository).delete(legacy);
+        verifyNoInteractions(storage);
     }
 
     @Test
@@ -194,5 +263,6 @@ class ContractServiceTest {
         assertThatThrownBy(() -> service.delete(owner, contractId))
                 .isInstanceOf(ContractNotFoundException.class);
         verify(repository, never()).delete(any(Contract.class));
+        verifyNoInteractions(storage); // someone else's file must stay untouched
     }
 }
