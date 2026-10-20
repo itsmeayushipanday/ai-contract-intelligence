@@ -9,21 +9,29 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 
-def _build(pages: list[list[str]], **canvas_options) -> bytes:
+# A line is plain text (Helvetica 11) or a (text, font, size) tuple for headings, e.g. ("5. Term", "Helvetica-Bold", 11)
+Line = str | tuple[str, str, float]
+
+BODY_FONT, BODY_SIZE = "Helvetica", 11
+
+
+def _build(pages: list[list[Line]], **canvas_options) -> bytes:
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4, **canvas_options)
     for lines in pages:
         y = 800
         for line in lines:
-            pdf.drawString(72, y, line)
-            y -= 18
+            text, font, size = (line, BODY_FONT, BODY_SIZE) if isinstance(line, str) else line
+            pdf.setFont(font, size)
+            pdf.drawString(72, y, text)
+            y -= size + 8
         pdf.showPage()
     pdf.save()
     return buffer.getvalue()
 
 
-def make_pdf(pages: list[list[str]]) -> bytes:
-    """One PDF page per entry; each entry is the list of text lines on that page ([] = blank page)."""
+def make_pdf(pages: list[list[Line]]) -> bytes:
+    """One PDF page per entry; each entry is the list of lines on that page ([] = blank page)."""
     return _build(pages)
 
 

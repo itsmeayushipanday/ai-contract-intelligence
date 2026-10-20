@@ -115,7 +115,7 @@ def test_unexpected_failure_returns_generic_500_without_internals(app, monkeypat
     def explode(*args, **kwargs):
         raise RuntimeError("secret internal detail: db password is hunter2")
 
-    monkeypatch.setattr("app.api.extract.extract_pages", explode)
+    monkeypatch.setattr("app.api.extract.extract_document", explode)
     # raise_server_exceptions=False: behave like the real server, which returns the 500 response
     client = TestClient(app, raise_server_exceptions=False)
 
